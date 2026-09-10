@@ -13,7 +13,6 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <style>
-        /* Custom Scrollbar for better UI */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -27,11 +26,37 @@
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
         }
+
+        /* Auth overlay backdrop blur */
+        .auth-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
     </style>
     <!-- Use Inter font for clean modern typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="h-screen w-screen overflow-hidden text-slate-800 bg-slate-100" style="font-family: 'Inter', sans-serif;">
+
+    <!-- Authentication Overlay -->
+    <div id="auth-overlay" class="fixed inset-0 z-[9999] bg-slate-900/40 auth-blur flex flex-col items-center justify-center p-4 transition-opacity duration-500">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full text-center border border-slate-100">
+            <div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold text-slate-900 mb-2 tracking-tight">Surveyor Login</h2>
+            <p class="text-sm text-slate-500 mb-8">Please sign in with an authorized account to access the workspace and datasets.</p>
+            
+            <button id="login-btn" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-3 px-4 rounded-xl transition-all shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="20px" height="20px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+                Sign in with Google
+            </button>
+            
+            <div id="auth-error" class="hidden mt-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-lg border border-red-100">
+                <!-- Error messages will appear here -->
+            </div>
+        </div>
+    </div>
 
     <!-- Map Container -->
     <div id="map" class="absolute inset-0 w-full h-full"></div>
@@ -50,14 +75,16 @@
                 </h1>
                 <p id="app-subtitle" class="text-xs text-slate-500 mt-2 font-medium">Interactive Mapping & Data Consolidation Workspace</p>
             </div>
-            <button id="sidebar-toggle-btn" class="text-slate-400 group-hover:text-indigo-600 transition-colors p-1 mt-1 shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transform transition-transform duration-300"><polyline points="18 15 12 9 6 15"></polyline></svg>
-            </button>
+            <div class="flex flex-col items-end shrink-0">
+                <button id="sidebar-toggle-btn" class="text-slate-400 group-hover:text-indigo-600 transition-colors p-1 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="transform transition-transform duration-300"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+                <button id="btn-logout" class="text-xs font-bold text-slate-400 hover:text-red-500 mt-4 transition-colors p-1" title="Sign Out">Log Out</button>
+            </div>
         </div>
 
         <div id="sidebar-content" class="flex flex-col overflow-hidden">
             <div class="p-6 flex-1 overflow-y-auto space-y-6">
-                
                 <!-- File Upload Area -->
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2.5 tracking-tight">1. Upload Master Dataset</label>
@@ -220,6 +247,86 @@
         </div>
     </div>
 
+    <!-- FIREBASE AUTHENTICATION LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+        // 1. REPLACE THIS WITH YOUR FIREBASE CONFIG
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // 2. REPLACE THIS WITH YOUR WHITELISTED EMAILS
+        const allowedEmails = [
+            "your.email@gmail.com", 
+            "colleague@domain.com"
+        ];
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('btn-logout');
+        const authOverlay = document.getElementById('auth-overlay');
+        const errorBox = document.getElementById('auth-error');
+
+        // Handle Google Sign-in click
+        loginBtn.addEventListener('click', () => {
+            errorBox.classList.add('hidden'); // clear previous errors
+            signInWithPopup(auth, provider).then((result) => {
+                const userEmail = result.user.email;
+                if (allowedEmails.includes(userEmail)) {
+                    // Success! Hide the overlay to reveal the app
+                    authOverlay.classList.add('opacity-0', 'pointer-events-none');
+                    setTimeout(() => authOverlay.classList.add('hidden'), 500); // Wait for transition
+                } else {
+                    // Fail! Display error in the DOM (no alerts)
+                    errorBox.textContent = `Access Denied: ${userEmail} is not authorized.`;
+                    errorBox.classList.remove('hidden');
+                    signOut(auth);
+                }
+            }).catch((error) => {
+                console.error("Login failed:", error);
+                errorBox.textContent = `Authentication failed: ${error.message}`;
+                errorBox.classList.remove('hidden');
+            });
+        });
+
+        // Handle Logout click
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).then(() => {
+                // Show the overlay again
+                authOverlay.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+                errorBox.classList.add('hidden');
+                
+                // Optionally call the app's resetApp() function if you want to clear the workspace on logout
+                if (typeof window.resetApp === 'function') {
+                    window.resetApp();
+                }
+            });
+        });
+
+        // Check if user is already logged in on page refresh
+        onAuthStateChanged(auth, (user) => {
+            if (user && allowedEmails.includes(user.email)) {
+                authOverlay.classList.add('opacity-0', 'pointer-events-none');
+                setTimeout(() => authOverlay.classList.add('hidden'), 500);
+            } else if (user) {
+                // User is logged in but not whitelisted (rare edge case on refresh)
+                signOut(auth);
+            }
+        });
+    </script>
+
+    <!-- MAIN APP LOGIC -->
     <script>
         // System variables
         let map;
@@ -1078,6 +1185,9 @@
             // Reset map view to default location
             map.setView([22.7408, 77.7259], 14);
         }
+        
+        // Expose reset app to the global window object so the Firebase module can call it on logout
+        window.resetApp = resetApp;
     </script>
 </body>
 </html>
